@@ -23,7 +23,7 @@ import (
 )
 
 var regionMap = map[string][]string{
-	"Europe":        {"Albania", "Andorra", "Austria", "Belgium", "Belgium", "Bulgaria", "Croatia", "Czechia", "Cyprus", "Denmark", "England", "Estonia", "Faroe Island", "France", "France", "Germany", "Germany", "Gibraltar", "Greece", "Greenland", "Hungary", "Iceland", "Ireland", "Italy", "Italy", "Latvia", "Liechtenstein", "Lithuania", "Luxembourg", "Malta", "Montenegro", "Netherlands", "North Macedonia", "Norway", "Norway", "Poland", "Portugal", "Romania", "Scotland", "Serbia", "Slovakia", "Slovenia", "Spain", "Sweden", "Switzerland", "Türkiye", "Ukraine", "Wales", "Åland"},
+	"Europe":        {"Albania", "Andorra", "Austria", "Belgium", "Belgium", "Bulgaria", "Croatia", "Czechia", "Cyprus", "Denmark", "England", "Estonia", "Faroe Island", "Finland", "France", "France", "Germany", "Gibraltar", "Greece", "Greenland", "Hungary", "Iceland", "Ireland", "Italy", "Italy", "Latvia", "Liechtenstein", "Lithuania", "Luxembourg", "Malta", "Montenegro", "Netherlands", "North Macedonia", "Norway", "Poland", "Portugal", "Romania", "Scotland", "Serbia", "Slovakia", "Slovenia", "Spain", "Sweden", "Switzerland", "Türkiye", "Ukraine", "Wales", "Åland"},
 	"Asia":          {"Bangladesh", "Bhutan", "Cambodia", "Guam", "Hong Kong", "India", "India", "Indonesia", "Israel", "Japan", "Japan", "Jordan", "Kazakhstan", "Kyrgyzstan", "Laos", "Macao", "Malaysia", "Mongolia", "Northern Mariana Islands", "Oman", "Philippines", "Qatar", "Russia", "Singapore", "South Korea", "Sri Lanka", "Taiwan", "Thailand", "United Arab Emirates", "West Bank"},
 	"Africa":        {"Botswana", "Eswatini", "Ghana", "Kenya", "Lesotho", "Nigeria", "Rwanda", "Rèunion", "Senegal", "South Africa", "South Africa", "São Tomé and Príncipe", "Tunisia", "Uganda"},
 	"North America": {"American Virgin Islands", "Bermuda", "British Virgin Islands", "Canada", "Dominican Republic", "Guatemala", "Hawaii", "Mexico", "Panama", "Panama", "Puerto Rico", "United States of America"},
@@ -266,7 +266,7 @@ func createNewEntryTab() *container.TabItem {
 		return nil
 	}
 
-	correctCheck := widget.NewCheck("Correct Country", nil)
+	correctCheck := widget.NewCheck("Correct Region", nil)
 
 	continentList := widget.NewList(
 		func() int { return len(continents) },
@@ -287,7 +287,7 @@ func createNewEntryTab() *container.TabItem {
 
 	continentList.OnSelected = func(id widget.ListItemID) {
 		selectedContinent = continents[id]
-		updateCountryList(selectedContinent, regionList)
+		updateRegionList(selectedContinent, regionList)
 	}
 
 	regionList.OnSelected = func(id widget.ListItemID) {
@@ -379,12 +379,12 @@ func openDir(path string) error {
 	}
 }
 
-func updateCountryList(continent string, countryList *widget.List) {
+func updateRegionList(continent string, regionList *widget.List) {
 	if countries, ok := regionMap[continent]; ok {
-		countryList.Length = func() int { return len(countries) }
-		countryList.UpdateItem = func(i widget.ListItemID, obj fyne.CanvasObject) {
+		regionList.Length = func() int { return len(countries) }
+		regionList.UpdateItem = func(i widget.ListItemID, obj fyne.CanvasObject) {
 			obj.(*widget.Label).SetText(countries[i])
 		}
-		countryList.Refresh()
+		regionList.Refresh()
 	}
 }
