@@ -23,7 +23,7 @@
       devShells = forEachSupportedSystem ({ pkgs }: {
         default = pkgs.mkShell {
           shellHook = ''
-            alias fyne-build-windows='CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC="zig cc -target x86_64-windows-gnu" CXX="zig c++ -target x86_64-windows-gnu" fyne build'
+            alias fyne-build-windows='CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC="zig cc -target x86_64-windows-gnu" CXX="zig c++ -target x86_64-windows-gnu" go build -ldflags="-s -w -extldflags '-Wl,--subsystem,windows'" -o geotracker.exe'
             alias fyne-build-linux='CGO_ENABLED=1 GOOS=linux GOARCH=amd64 CC="zig cc -target x86_64-linux" CXX="zig c++ -target x86_64-linux" fyne build'
           '';
           buildInputs = with pkgs; [

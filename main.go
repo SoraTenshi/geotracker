@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 
@@ -22,28 +24,34 @@ import (
 
 var regionMap = map[string][]string{
 	"Europe":        {"Albania", "Andorra", "Austria", "Belgium", "Belgium", "Bulgaria", "Croatia", "Czechia", "Cyprus", "Denmark", "England", "Estonia", "Faroe Island", "France", "France", "Germany", "Germany", "Gibraltar", "Greece", "Greenland", "Hungary", "Iceland", "Ireland", "Italy", "Italy", "Latvia", "Liechtenstein", "Lithuania", "Luxembourg", "Malta", "Montenegro", "Netherlands", "North Macedonia", "Norway", "Norway", "Poland", "Portugal", "Romania", "Scotland", "Serbia", "Slovakia", "Slovenia", "Spain", "Sweden", "Switzerland", "Türkiye", "Ukraine", "Wales", "Åland"},
-	"Asia":          {"Guam", "Hong Kong", "India", "India", "Indonesia", "Israel", "Japan", "Japan", "Jordan", "Kazakhstan", "Kyrgyzstan", "Laos", "Macao", "Malaysia", "Mongolia", "Northern Mariana Islands", "Oman", "Philippines", "Qatar", "Singapore", "South Korea", "Sri Lanka", "Taiwan", "Thailand", "United Arab Emirates", "West Bank"},
+	"Asia":          {"Bangladesh", "Bhutan", "Cambodia", "Guam", "Hong Kong", "India", "India", "Indonesia", "Israel", "Japan", "Japan", "Jordan", "Kazakhstan", "Kyrgyzstan", "Laos", "Macao", "Malaysia", "Mongolia", "Northern Mariana Islands", "Oman", "Philippines", "Qatar", "Russia", "Singapore", "South Korea", "Sri Lanka", "Taiwan", "Thailand", "United Arab Emirates", "West Bank"},
 	"Africa":        {"Botswana", "Eswatini", "Ghana", "Kenya", "Lesotho", "Nigeria", "Rwanda", "Rèunion", "Senegal", "South Africa", "South Africa", "São Tomé and Príncipe", "Tunisia", "Uganda"},
 	"North America": {"American Virgin Islands", "Bermuda", "British Virgin Islands", "Canada", "Dominican Republic", "Guatemala", "Hawaii", "Mexico", "Panama", "Panama", "Puerto Rico", "United States of America"},
 	"South America": {"Argentina", "Bolivia", "Brasil", "Chile", "Colombia", "Curaçao", "Ecuador", "Peru", "Uruguay"},
 	"Oceania":       {"American Samoa", "Australia", "Christmas Islands", "New Zealand"},
 }
 
+var window fyne.Window
+
 func main() {
 	database, err := getOrCreateDatabase()
+
+	geotracker := app.New()
+	geotracker.Settings().SetTheme(NewTokyoNightStormTheme())
+
+	window = geotracker.NewWindow("Geotracker")
+	window.Resize(fyne.NewSize(600.0, 600.0))
+
 	if err != nil {
-		log.Fatalln("Database couldn't be created")
+		dialog.NewError(errors.New("Database couldn't be created"), window)
 		return
 	}
 
-	entries, err = fromJson(database)
-	if err != nil {
-		log.Printf("Couldn't deserialize db: %w", err.Error())
-	}
+	entries, _ = fromJson(database)
 
 	databaseFile, err := os.OpenFile(database, os.O_RDWR, 0644)
 	if err != nil {
-		log.Fatalln("Database couldn't be opened with RDWR")
+		dialog.NewError(errors.New("Database couldn't be opened with RDWR"), window)
 		return
 	}
 	defer databaseFile.Close()
@@ -54,13 +62,10 @@ func main() {
 	}
 	sort.Strings(continents)
 
-	geotracker := app.New()
-	window := geotracker.NewWindow("Geotracker")
-	window.Resize(fyne.NewSize(600.0, 600.0))
-
 	tabs := container.NewAppTabs()
 	tabs.Append(createNewEntryTab())
 	tabs.Append(createNewResultsTab())
+	tabs.Append(createNewInfoTab(database))
 
 	tabs.OnSelected = func(ti *container.TabItem) {
 		if ti.Text == "Results" {
@@ -332,6 +337,46 @@ func createNewEntryTab() *container.TabItem {
 	)
 
 	return container.NewTabItem("New Entry", content)
+}
+
+func createNewInfoTab(path string) *container.TabItem {
+	pathLabel := widget.NewLabel("Database Path:")
+	pathValue := widget.NewLabel(path)
+	pathValue.Wrapping = fyne.TextWrapBreak
+
+	openButton := widget.NewButton("Open", func() {
+		err := openDir(path)
+		if err != nil {
+			dialog.NewError(err, window)
+		}
+	})
+
+	copyright := widget.NewLabel("Copyright (c) 2025 SoraTenshi")
+
+	content := container.NewVBox(
+		pathLabel,
+		pathValue,
+		openButton,
+		widget.NewSeparator(),
+		copyright,
+	)
+
+	return container.NewTabItem("Info", content)
+}
+
+func openDir(path string) error {
+	folderPath := filepath.Dir(path)
+
+	switch runtime.GOOS {
+	case "windows":
+		return exec.Command("explorer", folderPath).Start()
+	case "darwin":
+		return exec.Command("open", folderPath).Start()
+	case "linux":
+		return exec.Command("xdg-open", folderPath).Start()
+	default:
+		return fmt.Errorf("unsupported os")
+	}
 }
 
 func updateCountryList(continent string, countryList *widget.List) {
