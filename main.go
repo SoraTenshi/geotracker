@@ -20,12 +20,13 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/adrg/xdg"
+	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 
 var regionMap = map[string][]string{
 	"Europe":        {"Albania", "Andorra", "Austria", "Belgium", "Belgium", "Bulgaria", "Croatia", "Czechia", "Cyprus", "Denmark", "England", "Estonia", "Faroe Island", "Finland", "France", "France", "Germany", "Gibraltar", "Greece", "Greenland", "Hungary", "Iceland", "Ireland", "Italy", "Italy", "Latvia", "Liechtenstein", "Lithuania", "Luxembourg", "Malta", "Montenegro", "Netherlands", "North Macedonia", "Norway", "Poland", "Portugal", "Romania", "Scotland", "Serbia", "Slovakia", "Slovenia", "Spain", "Sweden", "Switzerland", "Türkiye", "Ukraine", "Wales", "Åland"},
 	"Asia":          {"Bangladesh", "Bhutan", "Cambodia", "Guam", "Hong Kong", "India", "India", "Indonesia", "Israel", "Japan", "Japan", "Jordan", "Kazakhstan", "Kyrgyzstan", "Laos", "Macao", "Malaysia", "Mongolia", "Northern Mariana Islands", "Oman", "Philippines", "Qatar", "Russia", "Singapore", "South Korea", "Sri Lanka", "Taiwan", "Thailand", "United Arab Emirates", "West Bank"},
-	"Africa":        {"Botswana", "Eswatini", "Ghana", "Kenya", "Lesotho", "Nigeria", "Rwanda", "Rèunion", "Senegal", "South Africa", "South Africa", "São Tomé and Príncipe", "Tunisia", "Uganda"},
+	"Africa":        {"Botswana", "Eswatini", "Ghana", "Kenya", "Lesotho", "Nigeria", "Rwanda", "Rèunion", "Senegal", "South Africa", "São Tomé and Príncipe", "Tunisia", "Uganda"},
 	"North America": {"American Virgin Islands", "Bermuda", "British Virgin Islands", "Canada", "Dominican Republic", "Guatemala", "Hawaii", "Mexico", "Panama", "Panama", "Puerto Rico", "United States of America"},
 	"South America": {"Argentina", "Bolivia", "Brasil", "Chile", "Colombia", "Curaçao", "Ecuador", "Peru", "Uruguay"},
 	"Oceania":       {"American Samoa", "Australia", "Christmas Islands", "New Zealand"},
@@ -216,7 +217,6 @@ func createResultsTable() *container.Scroll {
 }
 
 func createNewResultsTab() *container.TabItem {
-
 	headerData := []string{"Region", "Approximate Score"}
 	header := widget.NewTable(
 		func() (int, int) {
@@ -246,27 +246,37 @@ func createNewResultsTab() *container.TabItem {
 }
 
 func createNewEntryTab() *container.TabItem {
+	selectedContinent := ""
+	selectedRegion := ""
+
 	pointsEntry := widget.NewEntry()
 	pointsEntry.SetPlaceHolder("Enter points...")
 	pointsEntry.Validator = func(s string) error {
 		if s == "" {
 			return nil
 		}
-
 		clean := strings.TrimSpace(s)
 		num, err := strconv.ParseUint(clean, 10, 16)
 		if err != nil {
 			return errors.New("must be a number")
 		}
-
-		if num < 0 || num > 5000 {
+		if num > 5000 {
 			return errors.New("must be between 0-5000")
 		}
-
 		return nil
 	}
-
 	correctCheck := widget.NewCheck("Correct Region", nil)
+
+	regionList := widget.NewList(
+		func() int { return 0 },
+		func() fyne.CanvasObject { return widget.NewLabel("") },
+		func(i widget.ListItemID, obj fyne.CanvasObject) {},
+	)
+	regionList.OnSelected = func(id widget.ListItemID) {
+		if selectedContinent != "" {
+			selectedRegion = regionMap[selectedContinent][id]
+		}
+	}
 
 	continentList := widget.NewList(
 		func() int { return len(continents) },
@@ -275,34 +285,66 @@ func createNewEntryTab() *container.TabItem {
 			obj.(*widget.Label).SetText(continents[i])
 		},
 	)
-
-	regionList := widget.NewList(
-		func() int { return 0 },
-		func() fyne.CanvasObject { return widget.NewLabel("") },
-		func(i widget.ListItemID, obj fyne.CanvasObject) {},
-	)
-
-	selectedContinent := ""
-	selectedRegion := ""
-
 	continentList.OnSelected = func(id widget.ListItemID) {
 		selectedContinent = continents[id]
 		updateRegionList(selectedContinent, regionList)
 	}
 
-	regionList.OnSelected = func(id widget.ListItemID) {
-		selectedRegion = regionMap[selectedContinent][id]
-	}
-
-	continentListContainer := container.New(layout.NewStackLayout(), continentList)
+	continentListContainer := container.NewStack(continentList)
 
 	regionListContainer := container.NewVScroll(regionList)
 	regionListContainer.SetMinSize(fyne.NewSize(200, 250))
 
-	selectionPanel := container.NewGridWithColumns(2,
+	defaultSelectionPanel := container.NewGridWithColumns(2,
 		continentListContainer,
 		regionListContainer,
 	)
+
+	selectionContainer := container.NewStack(defaultSelectionPanel)
+
+	searchField := widget.NewEntry()
+	searchField.SetPlaceHolder("Search regions...")
+	searchField.OnChanged = func(query string) {
+		trimmed := strings.TrimSpace(query)
+		if len(trimmed) < 2 {
+			selectionContainer.Objects = []fyne.CanvasObject{defaultSelectionPanel}
+			selectionContainer.Refresh()
+			return
+		} else {
+			var matches []string
+			for continent, regions := range regionMap {
+				found := fuzzy.FindNormalizedFold(trimmed, regions)
+				for _, match := range found {
+					matches = append(matches, fmt.Sprintf("%s: %s", continent, match))
+				}
+			}
+			searchList := widget.NewList(
+				func() int { return len(matches) },
+				func() fyne.CanvasObject { return widget.NewLabel("") },
+				func(id widget.ListItemID, obj fyne.CanvasObject) {
+					obj.(*widget.Label).SetText(matches[id])
+				},
+			)
+			searchList.OnSelected = func(id widget.ListItemID) {
+				for continent, regions := range regionMap {
+					for _, region := range regions {
+						if strings.Contains(matches[id], region) {
+							selectedContinent = continent
+							selectedRegion = region
+							return
+						}
+					}
+				}
+				dialog.ShowError(errors.New("Some unexpected result in the search happened. Please open a bug report."), window)
+			}
+
+			searchListScroll := container.NewVScroll(searchList)
+			searchListScroll.SetMinSize(fyne.NewSize(400, float32(len(matches)-1)*50))
+
+			selectionContainer.Objects = []fyne.CanvasObject{searchListScroll}
+			selectionContainer.Refresh()
+		}
+	}
 
 	addButton := widget.NewButton("Add Entry", func() {
 		value, err := strconv.ParseUint(strings.TrimSpace(pointsEntry.Text), 10, 16)
@@ -310,21 +352,20 @@ func createNewEntryTab() *container.TabItem {
 			pointsEntry.SetText("Invalid input")
 			return
 		}
-
 		if selectedContinent == "" || selectedRegion == "" {
-			pointsEntry.SetText("Select a region")
+			dialog.NewError(errors.New("Select a region"), window)
 			return
 		}
-
 		entry := Entry{
 			Region:  selectedRegion,
 			Correct: correctCheck.Checked,
 			Delta:   uint(value),
 		}
-
 		entries = append(entries, entry)
 		pointsEntry.SetText("")
 		correctCheck.SetChecked(false)
+		searchField.SetText("")
+		searchField.SetPlaceHolder("Search regions...")
 		regionList.UnselectAll()
 	})
 
@@ -332,7 +373,8 @@ func createNewEntryTab() *container.TabItem {
 		widget.NewLabel("New Game Entry"),
 		pointsEntry,
 		correctCheck,
-		selectionPanel,
+		searchField,
+		selectionContainer,
 		addButton,
 	)
 
