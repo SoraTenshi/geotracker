@@ -25,6 +25,7 @@
           shellHook = ''
             alias fyne-build-windows='CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC="zig cc -target x86_64-windows-gnu" CXX="zig c++ -target x86_64-windows-gnu" go build -ldflags="-s -w -extldflags '-Wl,--subsystem,windows'" -o geotracker.exe'
             alias fyne-build-linux='CGO_ENABLED=1 GOOS=linux GOARCH=amd64 CC="zig cc -target x86_64-linux" CXX="zig c++ -target x86_64-linux" fyne build'
+            alias fyne-build-macos='GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 CC="zig cc -target aarch64-macos" CXX="zig c++ -target aarch64-macos" go build -o geotracker'
           '';
           buildInputs = with pkgs; [
             # c compiler
