@@ -31,6 +31,12 @@
             # c compiler
             zig
 
+            xorg.libX11 xorg.libXcursor xorg.libXrandr xorg.libXinerama xorg.libXi xorg.libXxf86vm
+            pkg-config
+            libGL
+
+            gcc
+
             # go (version is specified by overlay)
             go
 
